@@ -1,7 +1,9 @@
-# Imports
+# Import packages
 import scrapy
 import numpy as np
 import pandas as pd
+import yfinance as yf
+from datetime import datetime
 
 # Import the CrawlerProcess: for running the spider
 from scrapy.crawler import CrawlerProcess
@@ -37,7 +39,7 @@ class Etoro_Spider(scrapy.Spider):
     for url in start_urls:
       yield scrapy.Request(url, callback=self.parse)
 
-  # Second parsing method
+  # Parse method to extract trader names and their monthly performance
   def parse(self, response):
     # Create a dictionary that contains the name of the trader key and corresponding return values
     name = response.xpath('/html/body/form/div[2]/div[2]/div/div/div/div[2]/div[1]/div[1]/div[2]/div/div/div/text()')
@@ -55,19 +57,82 @@ process = CrawlerProcess()
 process.crawl(Etoro_Spider)
 process.start()
 
-# Generate dataframe from dictionary, need to orient on index and use transpose to generate NA values
-trader_frame = pd.DataFrame.from_dict(trader_dictionary, orient = 'index').T
+# Generate an object to reorder monthly performance values from the scraped table (they are not chronological)
+reorder_index = np.concatenate((np.arange(5)[::-1], np.arange(5, 17)[::-1], np.arange(17, 29)[::-1],
+                                np.arange(29, 41)[::-1], np.arange(41, 53)[::-1], np.arange(53, 65)[::-1],
+                                np.arange(65, 77)[::-1], np.arange(77, 89)[::-1], np.arange(89, 101)[::-1],
+                                np.arange(101, 113)[::-1], np.arange(113, 125)[::-1], np.arange(123, 137)[::-1],
+                                np.arange(137, 149)[::-1], np.arange(149, 161)[::-1]))
 
-# Generate an object to reorder values from the scraped table by
-reorder_index = np.concatenate((np.arange(5)[::-1], np.arange(5, 17)[::-1], np.arange(17, 29)[::-1], np.arange(29, 41)[::-1],
-                         np.arange(41, 53)[::-1], np.arange(53, 65)[::-1], np.arange(65, 77)[::-1],
-                         np.arange(77, 89)[::-1], np.arange(89, 101)[::-1], np.arange(101, 107)[::-1]))
+# Converting the string values in the dictionary to numbers using a nested list comprehension
+trader_dictionary = dict([a, [float(i) for i in x]] for a, x in trader_dictionary.items())
 
-# Reorder dataframe and drop obsolete columns
-trader_frame['new_index'] = reorder_index
-trader_frame = trader_frame.reset_index()
-trader_frame = trader_frame.set_index('new_index')
-trader_frame = trader_frame.sort_index(ascending = True)
-trader_frame = trader_frame.drop(columns=['index'])
+# Creating a new dictionary to host the sorted return values
+trader_dictionary_sorted = dict()
 
-print(trader_frame.head(30))
+# Filtering the reordering list to match the length of each monthly performance series
+# Sorting monthly performances based on the reordering string above
+trader_names = trader_dictionary.keys()
+
+for name in trader_names:
+    length = len(trader_dictionary[name]) -1
+    reorder_sub = filter(lambda rank: rank <= length, reorder_index)
+    reorder_list = list(reorder_sub)
+
+    returns = trader_dictionary[name]
+    sorted_returns = [returns[i] for i in reorder_list]
+    trader_dictionary_sorted[name] = sorted_returns
+
+# Turning dictionary in a dataframe
+# Using "orient = 'index'" and transposing to deal with unequal lengths of monthly performance series
+trader_frame = pd.DataFrame.from_dict(trader_dictionary_sorted, orient = 'index').T
+
+# Updating the index of the dataframe
+trader_frame = trader_frame.reindex(index = trader_frame.index[::-1])
+trader_frame = trader_frame.reset_index(drop=True)
+trader_frame = trader_frame.set_index(np.arange(0, 107))
+
+# Converting percentage gain per month into a scalar that can be used to multiply input values
+trader_frame = (trader_frame / 100) +1
+
+# Insert a new top row to add a base portfolio value of 1 for the popular investor that has been active the longest
+top_row = pd.DataFrame(np.nan, columns = trader_frame.columns, index = [0])
+trader_frame = pd.concat([top_row, trader_frame.loc[:]]).reset_index(drop=True)
+
+# For each popular investor, set portfolio value to 1 the month before the first monthly performance is recorded
+# Portfolio value for second month becomes the first monthly performance multiplied by the second monthly performance
+# ... And so forth
+# Values are changed to the natural logarithm of original portfolio values
+# Difference between these values per month is taken to end up with a dataframe of log returns
+column_names = trader_frame.columns
+for name in column_names:
+    first_value_to_multiply = trader_frame[name].first_valid_index() + 1
+    last_missing = trader_frame[name].first_valid_index() - 1
+
+    trader_frame.loc[last_missing, name] = 1
+
+    for i in np.arange(first_value_to_multiply, len(trader_frame[name])):
+        trader_frame.loc[i, name] = trader_frame.loc[i-1, name] * trader_frame.loc[i, name]
+
+    trader_frame[name] = np.log(trader_frame[name])
+
+trader_frame = trader_frame.diff()
+
+# Download S&P500 data from Yahoo Finance
+sp = yf.download("^GSPC", start= datetime(1970,6,1), end = datetime(2022,7,1),interval='1mo')
+
+# Select relevant column and convert to log returns
+sp = np.log(sp['Adj Close'].dropna())
+sp = sp.diff()
+
+# Select relevant time interval
+sp_sub = sp['2013-06-01':'2022-05-01']
+
+# Set relevant time interval as index for the dataframe
+trader_frame = trader_frame.set_index(sp_sub.index)
+
+# Add the log returns of the S&P500 to the dataframe
+trader_frame['SP500'] = sp_sub
+
+# Write dataframe to CSV for further analysis
+trader_frame.to_csv('trader_frame.csv')
