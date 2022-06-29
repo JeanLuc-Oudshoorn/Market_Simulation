@@ -24,9 +24,17 @@ sp = sp.diff().dropna()
 
 
 # Define function to draw bootstrap replicates and perform polynomial regression
-def draw_bs_pairs_linreg(trader = 'Can Zhao', poly_deg = 2, size=1):
-    """Perform pairs bootstrap for linear regression."""
+def draw_bs_pairs_reg(trader = 'Can Zhao', poly_deg = 2, size=1):
+    """
+    Performs a pairs bootstrap to do a polynomial regression, adjusts the intercept parameter
+    when it implies more than +1.5% outperformance versus the market index and saves the fit parameters
+    to a dictionary. The key of the dictionary is the number of the current bootstrap & regression iteration.
 
+    :param trader: name of trader's monthly performance to sample from performance dataframe
+    :param poly_deg: polynomial degree, 1 for linear, 2 for exponential
+    :param size: number of bootstraps and subsequent regressions to perform
+    :return: a dictionary with fit parameters for each boostrap regression
+    """
     # Filter dataframe for active period of selected trader
     filtered_frame = trader_frame[['SP500', trader]].loc[trader_frame[trader].notnull()]
 
@@ -55,7 +63,27 @@ def draw_bs_pairs_linreg(trader = 'Can Zhao', poly_deg = 2, size=1):
 # Define function to simulate monthly performances over a given period
 def market_simulation(fit_dict, market, sim_months = 240, months_per_draw = 4, simulations = 1000, infl_rate = 1.03,
                       trader = 'Can Zhao'):
+    """
+    Randomly draws periods of consecutive months from real historical data of the market index. Then uses this
+    data as input to predict monthly performance of the given trader based on a randomly chosen set of regression
+    fit parameters from a fit_parameters dictionary. Performs this whole process for a specified time period and
+    calculates the mean monthly return over this entire period. Repeats this simulation as many times as specified
+    and generates an output array of mean returns for each simulation.
 
+    :param fit_dict: dictionary of regression fit parameters
+    :param market: list of historical market returns
+    :param sim_months: period of time to simulate
+    :param months_per_draw: amount of consecutive months to draw from the market index in one go
+    :param simulations: how many times the simulation over the full time period is repeated
+    :param infl_rate: yearly inlfation rate, expressed as one plus a fraction (eg.: 1.03)
+    :param trader: name of the trader to perform the simulation for
+    :return: - array of mean monthly performance for the entire time period for each simulation,
+             - dictionary of full monthly performances of every simulation,
+             - number of simulated months,
+             - median case scenario simulation mean annual return (expressed as a percentage)
+             - best case scenario simulation mean annual return (expressed as a percentage)
+             - worst case scenario simulation mean annual return (expressed as a percentage)
+    """
     twenty_year_avgs = np.empty(simulations)
 
     months = np.empty(sim_months)
@@ -120,11 +148,35 @@ def market_simulation(fit_dict, market, sim_months = 240, months_per_draw = 4, s
 
 
 # Wrapper function that performs regression fits, market simulation and records the output for a given trader
-def calc_metrics(trader, infl_rate = 1.03, start = 50000, bs_linreg_fits = 2000, market_sims = 10000,
+def calc_metrics(trader, infl_rate = 1.03, start = 50000, bs_reg_fits = 2000, market_sims = 10000,
                  sim_months = 240, months_per_draw = 4):
+    """
+    Runs the previous two functions in one go and calculates extra performance metrics. Such as,
+    the inflation-adjusted portfolio at the end of the time period in the median case scenario,
+    best case scenario and worst case scenario. Also calculates the percentage of simulations in
+    which the trader would have been a millionaire by the end of the time period, given a certain
+    starting capital.
 
+    :param trader: name of trader to predict for
+    :param infl_rate: annual inflation rate expressed as a fraction
+    :param start: hypothetical starting capital (to calculate chance of becoming a millionaire)
+    :param bs_reg_fits: number of regression fits to perform
+    :param market_sims: number of full runs to simulate
+    :param sim_months: number of months to simulate for each run
+    :param months_per_draw: number of consecutive months to draw from market index in one go
+    :return: - trader Name
+             - median case scenario simulation mean annual return (expressed as a percentage)
+             - best case scenario simulation mean annual return (expressed as a percentage)
+             - worst case scenario simulation mean annual return (expressed as a percentage)
+             - portfolio value at the end of time period in median case scenario
+             - portfolio value at the end of time period in best case scenario
+             - portfolio value at the end of time period in worst case scenario
+             - percent of runs in which trader became a millionaire over time period given start capital
+             - dictionary of all full run simulations
+
+    """
     # Perform regression fits on bootstrapped samples
-    fits = draw_bs_pairs_linreg(trader = trader, size = bs_linreg_fits)
+    fits = draw_bs_pairs_reg(trader = trader, size = bs_reg_fits)
 
     # Perform market simulation
     long_avgs, full_run_dict, sim_months, trader_med, trader_min, trader_max =\
@@ -159,7 +211,19 @@ def calc_metrics(trader, infl_rate = 1.03, start = 50000, bs_linreg_fits = 2000,
 # Function to generate plots of a selected number of portfolio runs
 def plot_portfolios(full_run_dict, trader, monthly_inf, sim_months=240, start=50000, portfolios=200,
                     save = False):
+    """
+    Plots portfolio value for a specified number of full runs over a specified time period, adjusted for inflation
+    on a monthly basis. Also plots a horizontal starting capital line to easily identify the number of runs where real
+    returns dip into negative territory. Provides the option of saving the resulting plot.
 
+    :param full_run_dict: dictionary of full run simulations
+    :param trader: trader name
+    :param monthly_inf: monthly inflation
+    :param sim_months: number of months to simulate
+    :param start: starting capital to base calculations on
+    :param portfolios: number of runs to plot
+    :param save: boolean, provides the choice to save the plot
+    """
     # Initialise empty dictionary to hold portfolio values for different runs
     plotting_dict = dict()
 
@@ -180,6 +244,7 @@ def plot_portfolios(full_run_dict, trader, monthly_inf, sim_months=240, start=50
     for i in range(portfolios):
         _ = plt.plot(np.arange(1, sim_months+2), plotting_dict[i], alpha = 0.5, linewidth = 0.5)
 
+    plt.ylim(0, 10000000)
     plt.hlines(start, 1, sim_months + 1, color = 'red', linewidth = 0.85)
 
     plt.suptitle(f"{trader} Portfolio Simulations over {sim_months} Months"\
@@ -201,14 +266,14 @@ trader_metrics = pd.DataFrame(data = None)
 # Run the main function for each trader in the dataset
 for name in trader_frame.columns[:-1]:
     trader, trader_med, trader_max, trader_min, med_portf, max_portf, min_portf, perc_mill, full_run_dict = \
-    calc_metrics(trader = name, bs_linreg_fits = 1000, market_sims = 10000)
+    calc_metrics(trader = name, bs_reg_fits = 1000, market_sims = 1000, sim_months=300)
 
     output = pd.Series([trader, trader_med, trader_max, trader_min, med_portf, max_portf, min_portf, perc_mill])
 
     trader_metrics = pd.concat([trader_metrics, output], axis = 1)
 
     plot_portfolios(full_run_dict, trader, monthly_inf = np.power(1.03, (1/12)),
-                    sim_months = 240, save = True, portfolios = 150)
+                    sim_months = 300, save = False, portfolios = 150)
 
 # Clean up the dataframe
 trader_metrics = trader_metrics.T
