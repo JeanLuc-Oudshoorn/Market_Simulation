@@ -163,6 +163,7 @@ def plot_portfolios(full_run_dict, trader, monthly_inf, sim_months=240, start=50
     # Initialise empty dictionary to hold portfolio values for different runs
     plotting_dict = dict()
 
+    # Calculate portfolio value for each month per run while adjusting for inflation
     for j in range(portfolios):
         portfolio = np.empty(sim_months+1)
         portfolio[0] = start
@@ -174,7 +175,7 @@ def plot_portfolios(full_run_dict, trader, monthly_inf, sim_months=240, start=50
 
         plotting_dict[j] = portfolio
 
-
+    # Plot a given number of portfolio runs together with a fixed value line for reference
     fig, ax = plt.subplots()
     for i in range(portfolios):
         _ = plt.plot(np.arange(1, sim_months+2), plotting_dict[i], alpha = 0.5, linewidth = 0.5)
@@ -194,9 +195,10 @@ def plot_portfolios(full_run_dict, trader, monthly_inf, sim_months=240, start=50
     if save:
         plt.savefig(f'{trader_save_name}_sims.png'.format(trader_save_name=trader_save_name), dpi = 600)
 
+# Initialize empty dataframe to hold trader metrics
 trader_metrics = pd.DataFrame(data = None)
 
-
+# Run the main function for each trader in the dataset
 for name in trader_frame.columns[:-1]:
     trader, trader_med, trader_max, trader_min, med_portf, max_portf, min_portf, perc_mill, full_run_dict = \
     calc_metrics(trader = name, bs_linreg_fits = 1000, market_sims = 10000)
@@ -208,9 +210,10 @@ for name in trader_frame.columns[:-1]:
     plot_portfolios(full_run_dict, trader, monthly_inf = np.power(1.03, (1/12)),
                     sim_months = 240, save = True, portfolios = 150)
 
+# Clean up the dataframe
 trader_metrics = trader_metrics.T
 trader_metrics.columns = ['Trader', 'Med Return', 'Max Return', 'Min Return',
                           'Med Portf', 'Max Portf', 'Min Portf', 'Millionaire %']
 
-# Save the resulting Dataframe
+# Save the resulting dataframe
 trader_metrics.to_csv('trader_metrics.csv')
