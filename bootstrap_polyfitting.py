@@ -11,7 +11,7 @@ trader_frame = pd.read_csv('trader_frame.csv')
 trader_frame = trader_frame.set_index('Date')
 
 # Cap positive outliers at +15% monthly gain
-trader_frame[trader_frame >= 0.15] = 0.15
+trader_frame[trader_frame >= 0.14] = 0.14
 
 
 # Download S&P500 data from Yahoo Finance
@@ -46,15 +46,17 @@ def draw_bs_pairs_reg(trader = 'Can Zhao', poly_deg = 2, size=1):
 
     # Generate replicates
     for i in range(size):
-        bs_inds = np.random.choice(inds, size=len(inds))
-        bs_x, bs_y = filtered_frame['SP500'][bs_inds], filtered_frame[trader][bs_inds]
+        chosen_inds = np.random.choice(inds, size=len(inds))
+        bootstrap_frame = filtered_frame.loc[chosen_inds, :]
+        bs_x = bootstrap_frame['SP500']
+        bs_y = bootstrap_frame[trader]
         # Perform polynomial regression on bootstrap sample
         params = np.array(np.polyfit(bs_x, bs_y, poly_deg))
 
         # Scale down any excess outperformance if the intercept indicates
         # more than 1.5% monthly outperformance vs. market
         if params[2] >= 0.015:
-            params[2] = ((params[2]-0.015)*0.7)+0.015
+            params[2] = ((params[2]-0.015)*0.6)+0.015
 
         fit_parameters[i] = params
     return fit_parameters
@@ -210,7 +212,7 @@ def calc_metrics(trader, infl_rate = 1.03, start = 50000, bs_reg_fits = 2000, ma
 
 # Function to generate plots of a selected number of portfolio runs
 def plot_portfolios(full_run_dict, trader, monthly_inf, sim_months=240, start=50000, portfolios=200,
-                    save = False):
+                    save = True):
     """
     Plots portfolio value for a specified number of full runs over a specified time period, adjusted for inflation
     on a monthly basis. Also plots a horizontal starting capital line to easily identify the number of runs where real
@@ -257,7 +259,7 @@ def plot_portfolios(full_run_dict, trader, monthly_inf, sim_months=240, start=50
     trader_save_name = str(trader).lower().replace(" ", "_")
 
     plt.draw()
-    if save:
+    if save == True:
         plt.savefig(f'{trader_save_name}_sims.png'.format(trader_save_name=trader_save_name), dpi = 600)
 
 # Initialize empty dataframe to hold trader metrics
@@ -266,14 +268,14 @@ trader_metrics = pd.DataFrame(data = None)
 # Run the main function for each trader in the dataset
 for name in trader_frame.columns[:-1]:
     trader, trader_med, trader_max, trader_min, med_portf, max_portf, min_portf, perc_mill, full_run_dict = \
-    calc_metrics(trader = name, bs_reg_fits = 1000, market_sims = 1000, sim_months=300)
+    calc_metrics(trader=name, bs_reg_fits=1500, market_sims=10000, sim_months=240)
 
     output = pd.Series([trader, trader_med, trader_max, trader_min, med_portf, max_portf, min_portf, perc_mill])
 
     trader_metrics = pd.concat([trader_metrics, output], axis = 1)
 
     plot_portfolios(full_run_dict, trader, monthly_inf = np.power(1.03, (1/12)),
-                    sim_months = 300, save = False, portfolios = 150)
+                    sim_months = 240, save = True, portfolios = 150)
 
 # Clean up the dataframe
 trader_metrics = trader_metrics.T

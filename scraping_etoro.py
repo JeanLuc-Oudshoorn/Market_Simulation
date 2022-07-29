@@ -58,11 +58,11 @@ process.crawl(Etoro_Spider)
 process.start()
 
 # Generate an object to reorder monthly performance values from the scraped table (they are not chronological)
-reorder_index = np.concatenate((np.arange(5)[::-1], np.arange(5, 17)[::-1], np.arange(17, 29)[::-1],
-                                np.arange(29, 41)[::-1], np.arange(41, 53)[::-1], np.arange(53, 65)[::-1],
-                                np.arange(65, 77)[::-1], np.arange(77, 89)[::-1], np.arange(89, 101)[::-1],
-                                np.arange(101, 113)[::-1], np.arange(113, 125)[::-1], np.arange(123, 137)[::-1],
-                                np.arange(137, 149)[::-1], np.arange(149, 161)[::-1]))
+reorder_index = np.concatenate((np.arange(6)[::-1], np.arange(6, 18)[::-1], np.arange(18, 30)[::-1],
+                                np.arange(30, 42)[::-1], np.arange(42, 54)[::-1], np.arange(54, 66)[::-1],
+                                np.arange(66, 78)[::-1], np.arange(78, 90)[::-1], np.arange(90, 102)[::-1],
+                                np.arange(102, 114)[::-1], np.arange(114, 126)[::-1], np.arange(126, 138)[::-1],
+                                np.arange(138, 150)[::-1], np.arange(150, 162)[::-1]))
 
 # Converting the string values in the dictionary to numbers using a nested list comprehension
 trader_dictionary = dict([a, [float(i) for i in x]] for a, x in trader_dictionary.items())
@@ -90,7 +90,7 @@ trader_frame = pd.DataFrame.from_dict(trader_dictionary_sorted, orient = 'index'
 # Updating the index of the dataframe
 trader_frame = trader_frame.reindex(index = trader_frame.index[::-1])
 trader_frame = trader_frame.reset_index(drop=True)
-trader_frame = trader_frame.set_index(np.arange(0, 107))
+trader_frame = trader_frame.set_index(np.arange(0, 108))
 
 # Converting percentage gain per month into a scalar that can be used to multiply input values
 trader_frame = (trader_frame / 100) +1
@@ -126,7 +126,7 @@ sp = np.log(sp['Adj Close'].dropna())
 sp = sp.diff()
 
 # Select relevant time interval
-sp_sub = sp['2013-06-01':'2022-05-01']
+sp_sub = sp['2013-06-01':'2022-06-01']
 
 # Set relevant time interval as index for the dataframe
 trader_frame = trader_frame.set_index(sp_sub.index)
