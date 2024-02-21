@@ -37,6 +37,7 @@ class Etoro_Spider(scrapy.Spider):
              "https://factsheets.fundpeak.com/Report/473D3034AE5913E98EB115FA8224524D5DA9755AD76C3D3ADE8BC7078DBADE2B2036981639F6A6FC",
              "https://factsheets.fundpeak.com/Report/473D3034AE5913E9B719965CD9DF91651B126325AF7A0F77FB9620B1BB6096B06CA2246256E499B0"
              ]
+
     for url in start_urls:
       yield scrapy.Request(url, callback=self.parse)
 
@@ -59,11 +60,19 @@ process.crawl(Etoro_Spider)
 process.start()
 
 # Generate an object to reorder monthly performance values from the scraped table (they are not chronological)
-reorder_index = np.concatenate((np.arange(11)[::-1], np.arange(11, 23)[::-1], np.arange(23, 35)[::-1],
-                                np.arange(35, 47)[::-1], np.arange(47, 59)[::-1], np.arange(59, 71)[::-1],
-                                np.arange(71, 83)[::-1], np.arange(83, 95)[::-1], np.arange(95, 107)[::-1],
-                                np.arange(107, 119)[::-1], np.arange(119, 131)[::-1], np.arange(131, 143)[::-1],
-                                np.arange(143, 154)[::-1], np.arange(154, 166)[::-1]))
+reorder_index = np.concatenate((np.arange(0, 1)[::-1], np.arange(1, 13)[::-1], np.arange(13, 25)[::-1],
+                                np.arange(25, 37)[::-1], np.arange(37, 49)[::-1], np.arange(49, 61)[::-1],
+                                np.arange(61, 73)[::-1], np.arange(73, 85)[::-1], np.arange(85, 97)[::-1],
+                                np.arange(97, 109)[::-1], np.arange(109, 121)[::-1], np.arange(121, 133)[::-1],
+                                np.arange(133, 145)[::-1], np.arange(145, 157)[::-1], np.arange(157, 169)[::-1],
+                                np.arange(169, 181)[::-1]))
+
+# # Define the number of years and months
+# num_years = 12
+# months_per_year = 12
+#
+# # Generate the reorder index using list comprehension
+# reorder_index = np.concatenate([np.arange(i * months_per_year, (i + 1) * months_per_year)[::-1] for i in range(num_years)])
 
 # Converting the string values in the dictionary to numbers using a nested list comprehension
 trader_dictionary = dict([a, [float(i) for i in x]] for a, x in trader_dictionary.items())
@@ -91,16 +100,15 @@ trader_frame = pd.DataFrame.from_dict(trader_dictionary_sorted, orient='index').
 # Updating the index of the dataframe
 trader_frame = trader_frame.reindex(index=trader_frame.index[::-1])
 trader_frame = trader_frame.reset_index(drop=True)
-trader_frame = trader_frame.set_index(np.arange(0, 113))
 
 # Converting percentage gain per month into a scalar that can be used to multiply input values
 trader_frame = (trader_frame / 100) + 1
 
-# Insert a new top row to add a base portfolio value of 1 for the popular investor that has been active the longest
-top_rows = pd.DataFrame(np.zeros((114, len(trader_frame.columns))), columns=trader_frame.columns)
-top_rows[:] = np.nan
+# Create a new DataFrame with one row of NaN values
+nan_row = pd.DataFrame([np.nan] * len(trader_frame.columns), index=trader_frame.columns).T
 
-trader_frame = pd.concat([top_rows, trader_frame.loc[:]]).reset_index(drop=True)
+# Concatenate the new DataFrame with the original DataFrame
+trader_frame = pd.concat([nan_row, trader_frame], ignore_index=True)
 
 # For each popular investor, set portfolio value to 1 the month before the first monthly performance is recorded
 # Portfolio value for second month becomes the first monthly performance multiplied by the second monthly performance
@@ -122,21 +130,22 @@ for name in column_names:
 trader_frame = trader_frame.diff()
 
 # Download S&P500 data from Yahoo Finance
-tickers = yf.Tickers('^GSPC VGT VXUS QQQ ASML')
+tickers = yf.Tickers('^GSPC VGT VTI ASML QQQ SPY VB')
 
 # Set relevant time interval as index for the dataframe
-trader_frame = trader_frame.set_index(tickers.tickers['^GSPC'].history(start=datetime(2004, 1, 1),
-                                                                       end=datetime(2022, 12, 1),
+trader_frame = trader_frame.set_index(tickers.tickers['^GSPC'].history(start=datetime(2013, 6, 1),
+                                                                       end=datetime(2024, 2, 1),
                                                                        interval='1mo').index)
 
 # Select monthly close, convert to log returns and add to dataframe
-stocks = ['^GSPC', 'VGT', 'VXUS', 'QQQ', 'ASML']
+stocks = ['^GSPC', 'VGT', 'VTI', 'ASML', 'QQQ', 'SPY', 'VB']
 
 for s in stocks:
-    tmp = np.log(tickers.tickers[s].history(start=datetime(2004, 1, 1), end=datetime(2022, 12, 1),
-            interval='1mo')['Close'].dropna()).diff()
+    tmp = np.log(tickers.tickers[s].history(start=datetime(2013, 6, 1),
+                                            end=datetime(2024, 2, 1),
+                                            interval='1mo')['Close'].dropna()).diff()
 
     trader_frame[s] = tmp
 
 # Write dataframe to CSV for further analysis
-trader_frame.to_csv('trader_frame.csv')
+trader_frame.to_csv('D:/PyCharm/PyCharm Community Edition 2022.2.3/Projects/Drug_Effectiveness/trader_frame_upd.csv')
