@@ -60,12 +60,12 @@ process.crawl(Etoro_Spider)
 process.start()
 
 # Generate an object to reorder monthly performance values from the scraped table (they are not chronological)
-reorder_index = np.concatenate((np.arange(0, 1)[::-1], np.arange(1, 13)[::-1], np.arange(13, 25)[::-1],
-                                np.arange(25, 37)[::-1], np.arange(37, 49)[::-1], np.arange(49, 61)[::-1],
-                                np.arange(61, 73)[::-1], np.arange(73, 85)[::-1], np.arange(85, 97)[::-1],
-                                np.arange(97, 109)[::-1], np.arange(109, 121)[::-1], np.arange(121, 133)[::-1],
-                                np.arange(133, 145)[::-1], np.arange(145, 157)[::-1], np.arange(157, 169)[::-1],
-                                np.arange(169, 181)[::-1]))
+reorder_index = np.concatenate((np.arange(0, 6)[::-1], np.arange(6, 18)[::-1], np.arange(18, 30)[::-1],
+                                np.arange(30, 42)[::-1], np.arange(42, 54)[::-1], np.arange(54, 66)[::-1],
+                                np.arange(66, 78)[::-1], np.arange(78, 90)[::-1], np.arange(90, 102)[::-1],
+                                np.arange(102, 114)[::-1], np.arange(114, 126)[::-1], np.arange(126, 138)[::-1],
+                                np.arange(138, 150)[::-1], np.arange(150, 162)[::-1], np.arange(162, 174)[::-1],
+                                np.arange(174, 186)[::-1]))
 
 # # Define the number of years and months
 # num_years = 12
@@ -134,7 +134,7 @@ tickers = yf.Tickers('^GSPC VGT VTI ASML QQQ SPY VB')
 
 # Set relevant time interval as index for the dataframe
 trader_frame = trader_frame.set_index(tickers.tickers['^GSPC'].history(start=datetime(2013, 6, 1),
-                                                                       end=datetime(2024, 2, 1),
+                                                                       end=datetime(2024, 7, 1),
                                                                        interval='1mo').index)
 
 # Select monthly close, convert to log returns and add to dataframe
@@ -142,10 +142,10 @@ stocks = ['^GSPC', 'VGT', 'VTI', 'ASML', 'QQQ', 'SPY', 'VB']
 
 for s in stocks:
     tmp = np.log(tickers.tickers[s].history(start=datetime(2013, 6, 1),
-                                            end=datetime(2024, 2, 1),
+                                            end=datetime(2024, 7, 1),
                                             interval='1mo')['Close'].dropna()).diff()
 
     trader_frame[s] = tmp
 
 # Write dataframe to CSV for further analysis
-trader_frame.to_csv('D:/PyCharm/PyCharm Community Edition 2022.2.3/Projects/Drug_Effectiveness/trader_frame_upd.csv')
+trader_frame.to_csv('D:/PyCharm/PyCharm Community Edition 2022.2.3/Projects/Drug_Effectiveness/equities.csv')

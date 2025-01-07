@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 # Read Dataframe with log returns back to perform analysis
-trader_frame = pd.read_csv('trader_frame.csv')
+trader_frame = pd.read_csv('../trader_frame.csv')
 trader_frame = trader_frame.set_index('Date')
 
 # Cap positive outliers at +15% monthly gain
@@ -15,7 +15,7 @@ trader_frame[trader_frame >= 0.14] = 0.14
 
 
 # Download S&P500 data from Yahoo Finance
-sp = yf.download("^GSPC", start = datetime(1970, 2, 1), end = datetime(2022, 6, 1),interval='1mo')
+sp = yf.download("^GSPC", start = datetime(1970, 2, 1), end = datetime(2022, 7, 1),interval='1mo')
 
 
 # Select relevant column and convert to log returns
@@ -24,7 +24,7 @@ sp = sp.diff().dropna()
 
 
 # Define function to draw bootstrap replicates and perform polynomial regression
-def draw_bs_pairs_reg(trader = 'Can Zhao', poly_deg = 2, size=1):
+def draw_bs_pairs_reg(trader = 'Can Zhao', poly_deg = 1, size=1):
     """
     Performs a pairs bootstrap to do a polynomial regression, adjusts the intercept parameter
     when it implies more than +1.5% outperformance versus the market index and saves the fit parameters
@@ -55,8 +55,8 @@ def draw_bs_pairs_reg(trader = 'Can Zhao', poly_deg = 2, size=1):
 
         # Scale down any excess outperformance if the intercept indicates
         # more than 1.5% monthly outperformance vs. market
-        if params[2] >= 0.015:
-            params[2] = ((params[2]-0.015)*0.6)+0.015
+        if params[1] >= 0.015:
+            params[1] = ((params[1]-0.015)*0.5)+0.015
 
         fit_parameters[i] = params
     return fit_parameters

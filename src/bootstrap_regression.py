@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 # Read Dataframe with log returns back to perform analysis
-trader_frame = pd.read_csv('trader_frame.csv')
+trader_frame = pd.read_csv('../trader_frame.csv')
 trader_frame = trader_frame.set_index('Date')
 
 # Filter to remove NA

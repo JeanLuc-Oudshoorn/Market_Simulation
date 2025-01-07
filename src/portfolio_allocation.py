@@ -6,7 +6,7 @@ import warnings
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-popreturn = pd.read_csv('trader_frame_upd.csv')
+popreturn = pd.read_csv('../trader_frame_upd.csv')
 popreturn.set_index('Date', inplace=True)
 
 # Normalize for S&P 500 results
